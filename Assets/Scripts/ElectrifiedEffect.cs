@@ -8,10 +8,19 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter))]
 public class ElectrifiedEffect : MonoBehaviour {
 
+    
     private struct EPoint
     {
         public GameObject pointObject;
         public Vector2 velocity;
+    }
+
+    private struct ELink
+    {
+        public GameObject linkObject;
+        public LineRenderer lr;
+        public Transform pointA;
+        public Transform pointB;
     }
 
     public int numOfPoints = 5;
@@ -23,6 +32,8 @@ public class ElectrifiedEffect : MonoBehaviour {
 
     private MeshFilter m_mf;
     private EPoint[] m_points;
+    private List<ELink> m_links;
+
     private Vector3 m_min;
     private Vector3 m_max;
 
@@ -40,6 +51,28 @@ public class ElectrifiedEffect : MonoBehaviour {
             m_points[i].pointObject.transform.localPosition = new Vector3(Random.Range(m_min.x, m_max.x), pointAltitude, Random.Range(m_min.z, m_max.z));
             m_points[i].velocity = new Vector2(Random.Range(-1f, 1f), Random.Range(-1f, 1f)) * maxSpeed;
         }
+
+        //Create a link between each couple of points
+        m_links = new List<ELink>();
+        for(int i = 0; i < numOfPoints; i++){
+            for(int j = i+1; j < numOfPoints; j++){
+                ELink link = new ELink();
+                link.pointA = m_points[i].pointObject.transform;
+                link.pointB = m_points[j].pointObject.transform;
+
+                link.linkObject = new GameObject();
+                link.lr = link.linkObject.AddComponent(typeof(LineRenderer)) as LineRenderer;
+                link.lr.material = new Material(Shader.Find("Particles/Additive"));
+                link.lr.widthMultiplier = 0.02f;
+                link.lr.positionCount = 2;
+                link.lr.startColor = Color.blue;
+                link.lr.endColor = Color.white;
+
+                link.lr.SetPosition(0, link.pointA.position);
+                link.lr.SetPosition(1, link.pointB.position);
+                m_links.Add(link);
+            }
+        }
 	}
 	
 	// Update is called once per frame
@@ -47,16 +80,30 @@ public class ElectrifiedEffect : MonoBehaviour {
 		for(int i = 0; i < m_points.Length; i++)
         {
             Transform pt = m_points[i].pointObject.transform;
-            pt.localPosition += new Vector3(m_points[i].velocity.x,0,m_points[i].velocity.y);
+            pt.localPosition += new Vector3(m_points[i].velocity.x,0,m_points[i].velocity.y) * Time.deltaTime;
             //Reflect velocity if out of bounds
             if(pt.localPosition.x < m_min.x || pt.localPosition.x > m_max.x)
             {
                 m_points[i].velocity = new Vector2(m_points[i].velocity.x * -1, m_points[i].velocity.y);
+                pt.localPosition += new Vector3(m_points[i].velocity.x,0,m_points[i].velocity.y) * Time.deltaTime;
             }
             if (pt.localPosition.z < m_min.z || pt.localPosition.z > m_max.z)
             {
                 m_points[i].velocity = new Vector2(m_points[i].velocity.x, m_points[i].velocity.y * -1);
+                pt.localPosition += new Vector3(m_points[i].velocity.x,0,m_points[i].velocity.y) * Time.deltaTime;
             }
+        }
+
+        for(int i = 0; i < m_links.Count; i++){
+            m_links[i].lr.SetPosition(0, m_links[i].pointA.position);
+            m_links[i].lr.SetPosition(1, m_links[i].pointB.position);
+            float distance = Vector3.Distance(m_links[i].pointA.position, m_links[i].pointB.position);
+            Color c1 = m_links[i].lr.startColor;
+            Color c2 = m_links[i].lr.endColor;
+            c1.a = Mathf.Max(2.0f - distance, 0.0f);
+            c2.a = c1.a;
+            m_links[i].lr.startColor = c1;
+            m_links[i].lr.endColor = c2;
         }
 	}
 }
