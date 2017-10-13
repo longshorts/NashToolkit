@@ -8,13 +8,18 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter))]
 public class ElectrifiedEffect : MonoBehaviour {
 
-    
+    /// <summary>
+    /// Defines the tracked points in space that ELinks are drawn between
+    /// </summary>
     private struct EPoint
     {
         public GameObject pointObject;
         public Vector2 velocity;
     }
 
+    /// <summary>
+    /// Define properties nessesary to draw the line renderer between the given points
+    /// </summary>
     private struct ELink
     {
         public GameObject linkObject;
@@ -33,17 +38,17 @@ public class ElectrifiedEffect : MonoBehaviour {
     private MeshFilter m_mf;
     private EPoint[] m_points;
     private List<ELink> m_links;
-
     private Vector3 m_min;
     private Vector3 m_max;
+    private float m_scale;
 
-	// Use this for initialization
 	void Start () {
         m_mf = GetComponent<MeshFilter>();
-        //Min and max possible locations need to be scaled
-        m_min = Vector3.Scale(m_mf.mesh.bounds.min, transform.localScale);
-        m_max = Vector3.Scale(m_mf.mesh.bounds.max, transform.localScale);
+        m_min = m_mf.mesh.bounds.min;
+        m_max = m_mf.mesh.bounds.max;
+        m_scale = (transform.localScale.x + transform.localScale.z) / 2;
 
+        //Create the effect's EPoints and give them a random velocity
         m_points = new EPoint[numOfPoints];
         for(int i = 0; i < numOfPoints; i++)
         {
@@ -63,7 +68,7 @@ public class ElectrifiedEffect : MonoBehaviour {
                 link.linkObject = new GameObject();
                 link.lr = link.linkObject.AddComponent(typeof(LineRenderer)) as LineRenderer;
                 link.lr.material = new Material(Shader.Find("Particles/Additive"));
-                link.lr.widthMultiplier = 0.02f;
+                link.lr.widthMultiplier = 0.02f*m_scale;
                 link.lr.positionCount = 2;
                 link.lr.startColor = Color.blue;
                 link.lr.endColor = Color.white;
@@ -75,9 +80,10 @@ public class ElectrifiedEffect : MonoBehaviour {
         }
 	}
 	
-	// Update is called once per frame
 	void Update () {
-		for(int i = 0; i < m_points.Length; i++)
+
+        #region EPoint movement
+        for(int i = 0; i < m_points.Length; i++)
         {
             Transform pt = m_points[i].pointObject.transform;
             pt.localPosition += new Vector3(m_points[i].velocity.x,0,m_points[i].velocity.y) * Time.deltaTime;
@@ -93,17 +99,21 @@ public class ElectrifiedEffect : MonoBehaviour {
                 pt.localPosition += new Vector3(m_points[i].velocity.x,0,m_points[i].velocity.y) * Time.deltaTime;
             }
         }
+        #endregion
 
-        for(int i = 0; i < m_links.Count; i++){
+        #region ELink rendering
+        for (int i = 0; i < m_links.Count; i++){
             m_links[i].lr.SetPosition(0, m_links[i].pointA.position);
             m_links[i].lr.SetPosition(1, m_links[i].pointB.position);
             float distance = Vector3.Distance(m_links[i].pointA.position, m_links[i].pointB.position);
             Color c1 = m_links[i].lr.startColor;
             Color c2 = m_links[i].lr.endColor;
-            c1.a = Mathf.Max(2.0f - distance, 0.0f);
+            //Alpha is calculated according to the distance between each point, relative to the plane's scale.
+            c1.a = Mathf.Max(2.0f - distance/m_scale, 0.0f);
             c2.a = c1.a;
             m_links[i].lr.startColor = c1;
             m_links[i].lr.endColor = c2;
         }
-	}
+        #endregion
+    }
 }
